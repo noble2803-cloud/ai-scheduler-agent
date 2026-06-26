@@ -3,24 +3,6 @@ import random
 import json
 import google.generativeai as genai
 
-# ==============================================================================
-# [🔥 중요] 구글 AI 스튜디오에서 발급받은 무료 Gemini API 키를 아래에 넣으세요!
-# 예시: BUILTIN_GEMINI_API_KEY = "AIzaSy..."
-# ==============================================================================
-# 기존의 하드코딩된 키는 지우고 아래처럼 변경!
-if not cheat_mode:
-    custom_key = st.sidebar.text_input("🔄 대체 Gemini API Key 입력 (선택사항)", type="password")
-    
-    if custom_key:
-        api_key_to_use = custom_key
-    else:
-        # 깃허브에는 키를 올리지 않고, Streamlit 시스템 내부에서 키를 가져옵니다.
-        if "GEMINI_API_KEY" in st.secrets:
-            api_key_to_use = st.secrets["GEMINI_API_KEY"]
-        else:
-            api_key_to_use = ""
-# ==============================================================================
-
 # 1. 페이지 기본 설정 (가로 레이아웃 wide 모드)
 st.set_page_config(page_title="AI 멘탈케어 주간 스케줄러", layout="wide")
 
@@ -78,26 +60,31 @@ def calculate_stress(tasks):
 st.title("📅 AI 멘탈케어 주간 스케줄러 (무료 Gemini 버전)")
 st.write("---")
 
-# ⚙️ 사이드바: 3단계 안전장치 컨트롤러
+# ⚙️ 사이드바 설정 (여기서 변수 선언 순서를 바로잡았습니다!)
 st.sidebar.header("⚙️ 시연 컨트롤 패널")
+
+# [해결 포인트] cheat_mode 변수를 가장 먼저 선언합니다.
 cheat_mode = st.sidebar.checkbox("🧙‍♂️ API 없이 시연하기 (치트키 모드)", value=False, 
                                  help="네트워크 장애나 API 제한 발생 시 내부 알고리즘으로 시연하는 모드입니다.")
 
 api_key_to_use = ""
 
+# 이제 cheat_mode 변수가 확실히 존재하므로 조건문을 안전하게 실행합니다.
 if not cheat_mode:
     custom_key = st.sidebar.text_input("🔄 대체 Gemini API Key 입력 (선택사항)", type="password",
-                                       help="코드에 내장된 기본 키가 작동하지 않을 때 여기에 새 키를 넣으세요.")
+                                       help="Streamlit Secrets 시스템이 비어있거나 작동하지 않을 때 여기에 새 키를 넣으세요.")
     
     if custom_key:
         api_key_to_use = custom_key
         st.sidebar.info("💡 사용자가 새로 입력한 대체 API 키를 사용합니다.")
     else:
-        api_key_to_use = BUILTIN_GEMINI_API_KEY
-        if BUILTIN_GEMINI_API_KEY == "YOUR_BUILTIN_GEMINI_API_KEY_HERE" or BUILTIN_GEMINI_API_KEY == "":
-            st.sidebar.warning("⚠️ 코드 상단에 기본 Gemini API 키가 없습니다. 시연 전 코드를 수정하거나 아래에 새 키를 입력해 주세요.")
+        # 깃허브에는 키를 적지 않고, 지난 번에 설정한 Streamlit Secrets 금고에서 안전하게 꺼내옵니다.
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key_to_use = st.secrets["GEMINI_API_KEY"]
+            st.sidebar.success("🔒 Streamlit Secrets 보안 키를 적용 중입니다.")
         else:
-            st.sidebar.success("🔒 코드에 내장된 기본 Gemini API 키를 적용 중입니다.")
+            api_key_to_use = ""
+            st.sidebar.warning("⚠️ Streamlit 플랫폼의 Secrets 설정에 GEMINI_API_KEY를 등록해 주세요! (혹은 아래 대체 키 입력)")
 else:
     st.sidebar.success("🔮 치트키 모드 활성화 (API 호출 없음)")
 
@@ -146,8 +133,8 @@ with top_col2:
     
     st.write("")
     if st.button("🚀 AI 스마트 스케줄 재배열 시작", type="primary", use_container_width=True):
-        if not cheat_mode and (api_key_to_use == "YOUR_BUILTIN_GEMINI_API_KEY_HERE" or api_key_to_use == ""):
-            st.error("🚨 사용할 수 있는 API 키가 없습니다! 코드를 수정하여 내장 키를 넣거나, 'API 없이 시연하기'를 체크해 주세요.")
+        if not cheat_mode and (api_key_to_use == ""):
+            st.error("🚨 사용할 수 있는 API 키가 없습니다! 세팅을 확인하거나 사이드바에서 '치트키 모드'를 켜주세요.")
         elif not st.session_state.new_tasks:
             st.warning("재배열할 새로운 마감 일정을 최소 1개 이상 추가해 주세요.")
         else:
@@ -169,7 +156,6 @@ with top_col2:
                 # --- [모드 2: 무료 Gemini API 연결 모드] ---
                 else:
                     try:
-                        # Gemini 클라이언트 설정
                         genai.configure(api_key=api_key_to_use)
                         
                         prompt = f"""
@@ -187,7 +173,6 @@ with top_col2:
                         3. 구조 예시: {{"schedule": {{"월요일": [...], "화요일": [...]}}, "explanation": "재치 있고 직관적인 스케줄링 이유 설명"}}
                         """
                         
-                        # Gemini 1.5 Flash 모델 호출 및 JSON 출력 강제 설정
                         model = genai.GenerativeModel(
                             model_name="gemini-1.5-flash",
                             generation_config={"response_mime_type": "application/json"}
@@ -195,7 +180,6 @@ with top_col2:
                         
                         response = model.generate_content(prompt)
                         
-                        # 결과 파싱
                         result = json.loads(response.text.strip())
                         st.session_state.mock_schedule = result["schedule"]
                         st.session_state.ai_explanation = result["explanation"]
@@ -203,7 +187,7 @@ with top_col2:
                         st.success("Gemini AI 스케줄 재배열 완료!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"🚨 에러가 발생했습니다: {e}\n\n💡 무료 티어 초과 오류일 수 있으니, 시연을 즉시 재개하려면 왼쪽에서 'API 없이 시연하기'를 켜주세요!")
+                        st.error(f"🚨 에러가 발생했습니다: {e}\n\n💡 무료 티어 제한 오류일 수 있으니, 시연을 즉시 재개하려면 왼쪽에서 'API 없이 시연하기'를 켜주세요!")
 
 st.write("---")
 st.subheader("💡 AI 브리핑 및 주간 리포트")
