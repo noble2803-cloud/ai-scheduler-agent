@@ -7,7 +7,18 @@ import google.generativeai as genai
 # [🔥 중요] 구글 AI 스튜디오에서 발급받은 무료 Gemini API 키를 아래에 넣으세요!
 # 예시: BUILTIN_GEMINI_API_KEY = "AIzaSy..."
 # ==============================================================================
-BUILTIN_GEMINI_API_KEY = "AQ.Ab8RN6LnUdqvgNiUn0CP88wa8ktKg0Df4AiazMTy8m8zM5JYzA"
+# 기존의 하드코딩된 키는 지우고 아래처럼 변경!
+if not cheat_mode:
+    custom_key = st.sidebar.text_input("🔄 대체 Gemini API Key 입력 (선택사항)", type="password")
+    
+    if custom_key:
+        api_key_to_use = custom_key
+    else:
+        # 깃허브에는 키를 올리지 않고, Streamlit 시스템 내부에서 키를 가져옵니다.
+        if "GEMINI_API_KEY" in st.secrets:
+            api_key_to_use = st.secrets["GEMINI_API_KEY"]
+        else:
+            api_key_to_use = ""
 # ==============================================================================
 
 # 1. 페이지 기본 설정 (가로 레이아웃 wide 모드)
